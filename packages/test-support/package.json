@@ -1,0 +1,22 @@
+{
+  "name": "@agent-tools/test-support",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Test-only RemoteOps implementations and fixtures. NEVER a runtime dependency (ADR-011).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@agent-tools/core": "0.1.0"
+  }
+}

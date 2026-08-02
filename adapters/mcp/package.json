@@ -1,0 +1,22 @@
+{
+  "name": "@agent-tools/mcp-remote-explorer",
+  "version": "0.1.0",
+  "description": "stdio MCP server exposing the remote explorer tools",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "agent-tools-remote-explorer-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@agent-tools/core": "0.1.0",
+    "@agent-tools/remote-explorer": "0.1.0"
+  }
+}

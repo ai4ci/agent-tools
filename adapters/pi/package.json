@@ -1,0 +1,19 @@
+{
+  "name": "@agent-tools/pi-remote-explorer",
+  "version": "0.1.0",
+  "description": "pi extension exposing the remote explorer tools",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@agent-tools/core": "0.1.0",
+    "@agent-tools/remote-explorer": "0.1.0"
+  }
+}

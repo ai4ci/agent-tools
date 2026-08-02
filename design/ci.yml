@@ -1,0 +1,58 @@
+# CI workflow for agent-tools.
+#
+# NOTE: `.github/` is listed in `.agentreadonly`, so this file cannot be written
+# to its real location by an agent. Move it to `.github/workflows/ci.yml`.
+#
+# Test tiers are per ADR-011:
+#   tiers 1-2  no prerequisites
+#   tier 3     requires a working bwrap (bubblewrap) with user namespaces
+#   tier 4     requires sshd on localhost with passwordless key auth
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install sandbox and search prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap ripgrep
+          # Fail early and loudly if user namespaces are unavailable on the runner,
+          # rather than letting tier 3 silently skip (ADR-006 is fail-closed).
+          bwrap --ro-bind / / --unshare-net true
+
+      - name: Set up passwordless SSH to localhost for tier 4
+        run: |
+          ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519_agent_tools
+          cat ~/.ssh/id_ed25519_agent_tools.pub >> ~/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
+          ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519_agent_tools -o BatchMode=yes localhost true
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - name: Dependency boundaries (ADR-011)
+        run: npm run check:boundaries
+
+      - name: Tests (all tiers)
+        run: npm test
+        env:
+          AGENT_TOOLS_TEST_TIERS: '1,2,3,4'
+          AGENT_TOOLS_TEST_SSH_KEY: ~/.ssh/id_ed25519_agent_tools

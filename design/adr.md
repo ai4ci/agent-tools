@@ -4,9 +4,9 @@ Status legend: **Accepted** (agreed with user) · **Proposed** (awaiting review)
 
 ---
 
-## ADR-001 — TypeScript monorepo on a pnpm workspace
+## ADR-001 — TypeScript monorepo on an npm workspace
 
-**Status:** Accepted
+**Status:** Accepted (amended — originally specified pnpm)
 
 **Context.** `agent-tools` is a monorepo holding several independent collections of
 tools, each loadable into more than one agent host. The two initial hosts are
@@ -17,13 +17,24 @@ distribute naturally over npm.
 The repository's `.gitignore` is a Java template inherited from repository
 creation and does not reflect intent.
 
-**Decision.** TypeScript throughout, organised as a pnpm workspace. Replace the
-Java `.gitignore` with a Node one.
+**Decision.** TypeScript throughout, organised as an **npm workspace**. Test
+runner `vitest`; lint and format via `@biomejs/biome`. Replace the Java
+`.gitignore` with a Node one.
+
+**Amendment (Phase 0).** pnpm was the original choice. It proved uninstallable in
+the development sandbox: `corepack enable` fails with `EROFS` against both
+`/usr/local/bin` and `~/.local/bin`. npm 11 is already present and its workspace
+support is sufficient at this repository's size, so the dependency was dropped
+rather than worked around.
 
 **Consequences.** A Node runtime is required on the *operator's* machine. No
 runtime is required on explored remote hosts — we only send POSIX commands over
-SSH. `pnpm` is not currently installed in this sandbox; it is available via
-`corepack`.
+SSH.
+
+npm's flat, hoisted `node_modules` does not enforce dependency boundaries the way
+pnpm's isolated layout does. The ADR-011 requirement that no shipped package
+depends on `test-support` therefore cannot rely on resolution failure to catch a
+mistake, and needs an explicit CI check instead.
 
 ---
 

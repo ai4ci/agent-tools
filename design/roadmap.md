@@ -15,21 +15,27 @@ Working rules for every phase (from `AGENTS.md`):
 
 ## Phase 0 — Repository scaffolding
 
-- [ ] Replace the inherited Java `.gitignore` with a Node/TypeScript one
-- [ ] Enable `pnpm` via corepack; create the workspace (`pnpm-workspace.yaml`)
-- [ ] Root `package.json`: scripts, engines, shared devDependencies
-- [ ] TypeScript config — strict, composite project references
-- [ ] Linter + formatter, wired to a single `pnpm lint` entry point
-- [ ] Test runner selected and running against an empty suite
-- [ ] Empty `packages/core`, `packages/remote-explorer`, `adapters/pi`,
-      `adapters/mcp`, `packages/test-support` that build and typecheck
-- [ ] `packages/test-support` wired as a devDependency only, with a lint or CI
-      check that no shipped package depends on it (ADR-011)
-- [ ] CI: install, typecheck, lint, test on push
-- [ ] `design/active-issues.md` created
+- [x] Replace the inherited Java `.gitignore` with a Node/TypeScript one
+      *(done by the user — `.gitignore` is in `.agentreadonly`)*
+- [x] ~~Enable `pnpm` via corepack~~ — npm workspace instead (ADR-001 amendment,
+      ENV-001)
+- [x] Root `package.json`: scripts, engines, shared devDependencies
+- [x] TypeScript config — strict, composite project references
+      (`tsconfig.base.json`, per-package projects, `tsconfig.test.json` so test
+      files are typechecked too)
+- [x] Linter + formatter (Biome), wired to `npm run lint`
+- [x] Test runner (Vitest) with tier selection by filename suffix
+- [x] `packages/core`, `packages/remote-explorer`, `packages/test-support`,
+      `adapters/pi`, `adapters/mcp` build, typecheck, and cross-resolve
+- [x] `packages/test-support` marked private; `scripts/check-boundaries.mjs`
+      enforces that no shipped package depends on or imports it (ADR-011)
+- [ ] CI: install, typecheck, lint, test on push — **blocked, see ENV-002.**
+      Workflow written to `design/ci.yml`; `.github/` is not agent-writable and
+      the file must be moved by hand
+- [x] `design/active-issues.md` created
 
-**Done when:** `pnpm install && pnpm build && pnpm lint && pnpm test` is green on
-a clean clone.
+**Done when:** `npm install && npm run verify` is green on a clean clone.
+**Status:** green locally; CI installation outstanding (ENV-002).
 
 ---
 

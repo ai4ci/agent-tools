@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/remote-explorer" },
+    { "path": "packages/test-support" },
+    { "path": "adapters/pi" },
+    { "path": "adapters/mcp" }
+  ]
+}
