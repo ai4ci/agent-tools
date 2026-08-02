@@ -48,6 +48,24 @@ up the keypair for CI.
 
 ---
 
+## EXP-001 — `remote_ls` misreports filenames containing a newline
+
+**Discovered:** Phase 3 · **Status:** Open, low priority
+
+`remote_ls` parses `ls -1Ap`, which is line-oriented, so a filename containing a
+newline is split across lines and reported as two entries. Neither is correct.
+
+`find -print0` would avoid it, but carrying the entry type in the same pass needs
+GNU `-printf`, and the probe does not yet distinguish GNU from BusyBox
+(see ENV-004). Two round trips, or a type-per-entry `stat`, would cost more than
+the case is worth for now.
+
+Suggested fix: extend the probe to record `find` variant, then use
+`find -maxdepth 1 -printf '%y\\t%P\\0'` where GNU find is present and fall back to
+the current parse otherwise.
+
+---
+
 ## ENV-005 — The fail-closed sandbox path cannot be reproduced locally
 
 **Discovered:** Phase 2 · **Status:** Open, needs CI coverage
