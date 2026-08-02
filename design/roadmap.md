@@ -87,27 +87,35 @@ with no code path that concatenates a caller-supplied string into a command line
       no writable bind
 - [x] Empirically determine the bind set — done via
       `design/prototype/probe-bwrap.sh`; results recorded as ADR-012
-- [ ] Discover the host's usr layout in the probe and emit `--symlink` or
+- [x] Discover the host's usr layout in the probe and emit `--symlink` or
       `--ro-bind` accordingly (ADR-012 finding 2)
-- [ ] Establish the tmpfs before binding the root — order is significant and a
+- [x] Establish the tmpfs before binding the root — order is significant and a
       root under `/tmp` is otherwise mounted over (ADR-012 finding 1)
-- [ ] **Remote canonicalisation of every path via `realpath`, rejecting results
-      outside the root.** Not optional: a symlink inside the root pointing at a
-      bound path such as `/etc` resolves, and neither bwrap nor lexical
-      containment prevents it (ADR-012 finding 3)
-- [ ] **Fail closed:** no bwrap, or a non-functional bwrap, refuses the host with
-      an error stating what is missing and how to fix it
-- [ ] `LocalSandboxRemoteOps` (test tier 3) — real `bwrap`, no SSH — so sandbox
+- [x] **Remote canonicalisation of every path, rejecting results outside the
+      root.** Closes ADR-012 finding 3. Prefers `realpath(1)`, falling back to an
+      explicit symlink walk for hosts without it
+- [x] **Fail closed:** a host whose sandbox cannot be created is refused with an
+      error stating what is missing and how to fix it. Detection attempts a real
+      namespace rather than checking PATH — **the negative case is unverified
+      locally (ENV-005)**
+- [x] `LocalSandboxRemoteOps` (test tier 3) — real `bwrap`, no SSH — so sandbox
       correctness is testable without a remote host (ADR-011)
-- [ ] Root containment verified at the sandbox level too, independently of the
+- [x] Root containment verified at the sandbox level too, independently of the
       `core`-level check added in Phase 1
+- [x] `SshRemoteOps` — probe caching, sandbox wrapping, escaping, multiplexing,
+      control-socket teardown, and SSH failure classification
+- [x] Tier 4 test suite written (`*.ssh.test.ts`) — **never executed; no sshd in
+      the development sandbox (ENV-003). CI is the first run.**
 
-**Tests to fail first:** host without bwrap is refused; host with bwrap present
-but userns blocked is refused; symlink pointing outside the root is rejected;
-a write attempt inside the sandbox fails; network from inside the sandbox fails.
+**Tests to fail first:** host with a non-functional sandbox is refused; symlink
+pointing outside the root is rejected; a write attempt inside the sandbox fails;
+network from inside the sandbox fails. *(All written and proven to fail first,
+except the bwrap-present-but-userns-blocked case, which cannot be reproduced
+locally — ENV-005.)*
 
 **Done when:** no remote command can execute outside a verified sandbox, and the
 containment tests pass against a real bwrap.
+**Status:** met at tier 3 locally (23 tests). Tier 4 awaits its first CI run.
 
 ---
 

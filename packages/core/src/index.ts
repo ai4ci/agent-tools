@@ -48,3 +48,9 @@ export {
   buildSshCommand,
   controlPathFor,
 } from './ssh-command.js'
+export { classifySshFailure, type SshFailureInput } from './ssh-failure.js'
+export {
+  closeAllSshSessions,
+  SshRemoteOps,
+  type SshRemoteOpsOptions,
+} from './ssh-remote-ops.js'
