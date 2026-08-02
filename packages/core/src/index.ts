@@ -1,6 +1,17 @@
 export const PACKAGE_NAME = '@agent-tools/core'
 
 export {
+  type AgentToolsConfig,
+  CONFIG_VERSION,
+  getHost,
+  type HostConfig,
+  type HostLimits,
+  type LoadConfigOptions,
+  loadConfig,
+  parseConfig,
+  type SshConfig,
+} from './config.js'
+export {
   AgentToolsError,
   type AgentToolsErrorCode,
   type AgentToolsErrorOptions,
