@@ -1,0 +1,197 @@
+# Roadmap
+
+Phased delivery for `agent-tools`. Decisions behind these phases are in
+[`adr.md`](adr.md).
+
+Working rules for every phase (from `AGENTS.md`):
+
+- a clean revert point exists before changes begin
+- tests are written and **proven to fail** before the feature is developed
+- tests are **proven to pass** before the feature is called complete
+- no new lint or static-analysis findings
+- design docs updated and patch version incremented before committing
+
+---
+
+## Phase 0 — Repository scaffolding
+
+- [ ] Replace the inherited Java `.gitignore` with a Node/TypeScript one
+- [ ] Enable `pnpm` via corepack; create the workspace (`pnpm-workspace.yaml`)
+- [ ] Root `package.json`: scripts, engines, shared devDependencies
+- [ ] TypeScript config — strict, composite project references
+- [ ] Linter + formatter, wired to a single `pnpm lint` entry point
+- [ ] Test runner selected and running against an empty suite
+- [ ] Empty `packages/core`, `packages/remote-explorer`, `adapters/pi`,
+      `adapters/mcp`, `packages/test-support` that build and typecheck
+- [ ] `packages/test-support` wired as a devDependency only, with a lint or CI
+      check that no shipped package depends on it (ADR-011)
+- [ ] CI: install, typecheck, lint, test on push
+- [ ] `design/active-issues.md` created
+
+**Done when:** `pnpm install && pnpm build && pnpm lint && pnpm test` is green on
+a clean clone.
+
+---
+
+## Phase 1 — Host configuration, `RemoteOps`, SSH transport (`core`)
+
+- [ ] `RemoteOps` interface at the `exec(argv, opts)` level, plus root
+      resolution and capability reporting (ADR-011)
+- [ ] `TestRemoteOps` in `packages/test-support` — executes argv locally against
+      a temporary root using the real `grep`/`find`/`rg`; capability reporting
+      overridable so tests can simulate a host without `rg`
+- [ ] Implementation selection is compile-time wiring in tests; no config value
+      may select a `RemoteOps` implementation
+- [ ] Path containment implemented in `core` **above** the `RemoteOps` seam, so
+      every test tier exercises it
+- [ ] Config schema: alias, ssh target and options, root, sandbox policy,
+      output limits — shaped so multiple roots per host stay possible (ADR-007)
+- [ ] Config discovery and precedence (user-level vs project-level); validation
+      errors that name the offending field
+- [ ] SSH invocation layer: `BatchMode=yes`, connect timeout, per-command
+      timeout, `ControlMaster`/`ControlPersist` on a session-scoped socket
+- [ ] Control-socket lifecycle and teardown — must not leak in the long-lived
+      in-process pi adapter (ADR-008)
+- [ ] `argv` marshalling and remote-shell escaping, as its own unit
+- [ ] Escaper round-trip harness (test tier 2): escape an argv, run it through
+      `bash -c` against a helper printing its arguments NUL-separated, assert
+      byte-identical recovery — spaces, quotes, `$`, backticks, newlines, globs,
+      leading dashes, non-UTF-8
+- [ ] Structured error taxonomy: unreachable, auth failed, timeout, refused host
+
+**Tests to fail first:** escaper round-trip fixtures; unknown-alias rejection;
+timeout behaviour; socket cleanup on abnormal exit; containment rejection via
+`TestRemoteOps`.
+
+**Done when:** a fixture host can be reached and a fixed command round-tripped,
+with no code path that concatenates a caller-supplied string into a command line.
+
+---
+
+## Phase 2 — Probe and bwrap sandbox (`core`)
+
+- [ ] Probe command, built purely from config, resolving the root to a canonical
+      absolute path and confirming it is a directory
+- [ ] Detect `bwrap` **and** verify it can create a namespace — presence on PATH
+      is not sufficient evidence that userns is permitted
+- [ ] Detect available search tools (`rg`, `grep`, `find`)
+- [ ] Per-session probe result cache with explicit invalidation
+- [ ] Sandbox construction: read-only root bind, read-only toolchain binds,
+      `--unshare-net`, `--unshare-pid`, `--die-with-parent`, tmpfs `/tmp`,
+      no writable bind
+- [ ] Empirically determine the minimum bind set per tool — verified, not assumed
+      (ADR-006)
+- [ ] **Fail closed:** no bwrap, or a non-functional bwrap, refuses the host with
+      an error stating what is missing and how to fix it
+- [ ] `LocalSandboxRemoteOps` (test tier 3) — real `bwrap`, no SSH — so sandbox
+      correctness is testable without a remote host (ADR-011)
+- [ ] Root containment verified at the sandbox level too, independently of the
+      `core`-level check added in Phase 1
+
+**Tests to fail first:** host without bwrap is refused; host with bwrap present
+but userns blocked is refused; symlink pointing outside the root is rejected;
+a write attempt inside the sandbox fails; network from inside the sandbox fails.
+
+**Done when:** no remote command can execute outside a verified sandbox, and the
+containment tests pass against a real bwrap.
+
+---
+
+## Phase 3 — Remote explorer tools (`packages/remote-explorer`)
+
+- [ ] Shared tool-definition type: name, description, TypeBox schema, handler
+- [ ] `remote_hosts` — list configured aliases and their roots
+- [ ] `remote_ls` — directory listing, structured result
+- [ ] `remote_stat` — metadata for a path
+- [ ] `remote_find` — name/type/depth filtered search
+- [ ] `remote_grep` — content search, preferring `rg`, falling back to `grep`
+- [ ] `remote_read` — file contents with offset/limit
+- [ ] Path-filter seam applied to every path before it reaches output — the hook
+      `.aiignore` fills in later (ADR-010)
+- [ ] Output limits pushed to the remote where possible; truncation always
+      explicit in the result (ADR-009)
+- [ ] Tool descriptions written for a model reader, valid under both bare and
+      MCP-namespaced tool names
+
+**Tests to fail first:** per-tool behaviour against a fixture tree; truncation
+marker present when limits are hit; paths outside the root rejected by every
+tool, not just by `core`.
+
+**Done when:** all six tools work end-to-end against a real sandboxed host.
+
+---
+
+## Phase 4 — pi adapter
+
+- [ ] Extension entry point mapping definitions to `pi.registerTool()`
+- [ ] Config loading and probe caching scoped to the pi session
+- [ ] Teardown on session end — control sockets closed
+- [ ] Errors surfaced as useful tool results rather than thrown exceptions
+- [ ] Packaged as an installable pi package; `pi install` from a local path,
+      then from git
+- [ ] Manual verification: tools appear in `pi` and are callable by the model
+
+**Done when:** `pi install <this repo>` yields working `remote_*` tools.
+
+---
+
+## Phase 5 — MCP adapter and Claude Code plugin
+
+- [ ] stdio MCP server exposing the same definitions
+- [ ] TypeBox → JSON Schema derivation, with schema-parity tests against the pi
+      adapter (ADR-002)
+- [ ] Claude Code plugin manifest bundling the server
+- [ ] Manual verification: tools appear in Claude Code and are callable
+- [ ] Install documentation for both hosts
+
+**Done when:** the identical tool set is usable from Claude Code, with parity
+tests proving the two adapters expose the same schemas.
+
+---
+
+## Phase 6 — `.aiignore` (deferred scope, now scheduled)
+
+- [ ] Confirm the final semantics with the user before implementing — remote
+      gitignore-syntax file relative to the connection root is the presumed shape
+      but is not yet settled
+- [ ] Discovery and parsing of gitignore-syntax patterns
+- [ ] Enforcement in the Phase 3 path-filter seam — filtered paths omitted from
+      results and unreadable through `remote_read`
+- [ ] Local baseline patterns that a remote file can add to but never subtract
+      from
+- [ ] Remove the "no confidentiality filtering" caveat from the README
+
+**Done when:** ignored paths are invisible through every tool, verified per tool.
+
+---
+
+## Phase 7 — Release
+
+- [ ] Versioning and changelog policy across workspace packages
+- [ ] Publish pi package and MCP/plugin artefacts
+- [ ] README rewritten to match what was actually built
+- [ ] Second tool collection scaffolded, proving the monorepo structure holds
+
+---
+
+## Test strategy
+
+Four tiers (ADR-011). Tiers 1–3 run on every commit; tier 4 is opt-in locally
+and scheduled in CI.
+
+| Tier | Implementation | Covers | Phase introduced |
+|------|----------------|--------|------------------|
+| 1 | `TestRemoteOps` — argv exec'd in a temp dir | tool logic, parsing, limits, containment | 1 |
+| 2 | Escaper round-trip through `bash -c` | quoting, `$`, backticks, newlines, globs | 1 |
+| 3 | `LocalSandboxRemoteOps` — real bwrap, no SSH | bind set, fail-closed, escape attempts | 2 |
+| 4 | `SSHRemoteOps` against localhost | full stack, multiplexing, timeouts | 2 |
+
+---
+
+## Open questions
+
+- Config file location and format — settled in Phase 1
+- Whether a host may declare several roots, and how a tool selects between them
+- Whether tier 4 targets localhost-over-SSH or a container in CI; localhost is
+  the assumption unless CI cannot provide an sshd
+- Whether `remote_read` should be capped by file size, line count, or both
