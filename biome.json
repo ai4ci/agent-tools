@@ -50,6 +50,16 @@
     {
       "includes": ["adapters/mcp/**/*.ts", "scripts/**/*.mjs"],
       "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    },
+    {
+      "includes": ["**/test/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noTemplateCurlyInString": "off"
+          }
+        }
+      }
     }
   ]
 }

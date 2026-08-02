@@ -269,6 +269,59 @@ describe('loadConfig', () => {
     expect(getHost(config, 'user-only').ssh.target).toBe('a@b')
   })
 
+  it('ignores ambient XDG_CONFIG_HOME when an explicit home is given', async () => {
+    // Regression. An explicit `home` must scope discovery completely, or a
+    // caller that believes it has isolated itself silently reads the real user's
+    // configuration. Found on a CI runner that sets XDG_CONFIG_HOME where the
+    // development machine does not, so it passed locally and failed there.
+    const home = await tempDir()
+    const decoy = await tempDir()
+
+    await mkdir(join(home, '.config', 'agent-tools'), { recursive: true })
+    await writeFile(
+      join(home, '.config', 'agent-tools', 'config.json'),
+      JSON.stringify({
+        version: 1,
+        hosts: { 'from-home': { ssh: { target: 'a@b' }, root: '/h' } },
+      }),
+    )
+
+    await mkdir(join(decoy, 'agent-tools'), { recursive: true })
+    await writeFile(
+      join(decoy, 'agent-tools', 'config.json'),
+      JSON.stringify({
+        version: 1,
+        hosts: { 'from-decoy': { ssh: { target: 'a@b' }, root: '/d' } },
+      }),
+    )
+
+    const previous = process.env.XDG_CONFIG_HOME
+    process.env.XDG_CONFIG_HOME = decoy
+    try {
+      const config = await loadConfig({ cwd: await tempDir(), home })
+      expect(getHost(config, 'from-home')).toBeDefined()
+      expect(() => getHost(config, 'from-decoy')).toThrow()
+    } finally {
+      if (previous === undefined) delete process.env.XDG_CONFIG_HOME
+      else process.env.XDG_CONFIG_HOME = previous
+    }
+  })
+
+  it('honours XDG_CONFIG_HOME when no explicit home is given', async () => {
+    const xdg = await tempDir()
+    await mkdir(join(xdg, 'agent-tools'), { recursive: true })
+    await writeFile(
+      join(xdg, 'agent-tools', 'config.json'),
+      JSON.stringify({
+        version: 1,
+        hosts: { 'from-xdg': { ssh: { target: 'a@b' }, root: '/x' } },
+      }),
+    )
+
+    const config = await loadConfig({ cwd: await tempDir(), xdgConfigHome: xdg })
+    expect(getHost(config, 'from-xdg')).toBeDefined()
+  })
+
   it('returns an empty host set when no config exists anywhere', async () => {
     const config = await loadConfig({ cwd: await tempDir(), home: await tempDir() })
     expect(config.hosts.size).toBe(0)

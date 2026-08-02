@@ -79,6 +79,17 @@ function rejectUnknownKeys(
   }
 }
 
+function validateSshOptions(source: string, alias: string, options: unknown): void {
+  if (!isPlainObject(options)) {
+    fail(source, `host ${JSON.stringify(alias)} field "ssh.options" must be an object`)
+  }
+  for (const [key, entry] of Object.entries(options)) {
+    if (typeof entry !== 'string') {
+      fail(source, `host ${JSON.stringify(alias)} field "ssh.options.${key}" must be a string`)
+    }
+  }
+}
+
 function parseSsh(source: string, alias: string, value: unknown): SshConfig {
   if (!isPlainObject(value))
     fail(source, `host ${JSON.stringify(alias)} field "ssh" must be an object`)
@@ -95,26 +106,18 @@ function parseSsh(source: string, alias: string, value: unknown): SshConfig {
     fail(source, `host ${JSON.stringify(alias)} field "ssh.target" must be a non-empty string`)
   }
 
-  if (port !== undefined) {
-    if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
-      fail(source, `host ${JSON.stringify(alias)} field "ssh.port" must be an integer 1-65535`)
-    }
+  if (
+    port !== undefined &&
+    (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535)
+  ) {
+    fail(source, `host ${JSON.stringify(alias)} field "ssh.port" must be an integer 1-65535`)
   }
 
   if (identityFile !== undefined && typeof identityFile !== 'string') {
     fail(source, `host ${JSON.stringify(alias)} field "ssh.identityFile" must be a string`)
   }
 
-  if (options !== undefined) {
-    if (!isPlainObject(options)) {
-      fail(source, `host ${JSON.stringify(alias)} field "ssh.options" must be an object`)
-    }
-    for (const [key, entry] of Object.entries(options)) {
-      if (typeof entry !== 'string') {
-        fail(source, `host ${JSON.stringify(alias)} field "ssh.options.${key}" must be a string`)
-      }
-    }
-  }
+  if (options !== undefined) validateSshOptions(source, alias, options)
 
   return {
     target,
@@ -276,7 +279,17 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Agent
 
   const home = options.home ?? homedir()
   const cwd = options.cwd ?? process.cwd()
-  const xdg = options.xdgConfigHome ?? process.env.XDG_CONFIG_HOME ?? join(home, '.config')
+
+  // An explicitly supplied `home` scopes discovery completely: ambient
+  // XDG_CONFIG_HOME must not reach past it. Consulting the environment first
+  // meant a caller that thought it had isolated discovery silently read the real
+  // user's configuration instead — which is how this was found, on a CI runner
+  // that sets XDG_CONFIG_HOME where the development machine does not.
+  const xdg =
+    options.xdgConfigHome ??
+    (options.home === undefined
+      ? (process.env.XDG_CONFIG_HOME ?? join(home, '.config'))
+      : join(options.home, '.config'))
 
   const candidates = [
     join(xdg, 'agent-tools', 'config.json'),

@@ -1,3 +1,4 @@
+import type { AgentToolsError } from '@agent-tools/core'
 import { createLocalSandboxRemoteOps } from '@agent-tools/test-support'
 import { describe, expect, it } from 'vitest'
 
@@ -25,7 +26,16 @@ describe.skipIf(!expectDenied)('a host whose namespaces are denied', () => {
   })
 
   it('explains what is missing and how to fix it', async () => {
-    await expect(createLocalSandboxRemoteOps()).rejects.toThrow(/bubblewrap|namespace/i)
+    // toToolMessage() is the model-facing rendering; `.toThrow(regex)` matches
+    // only `message`, and the actionable part lives in the remedy.
+    try {
+      await createLocalSandboxRemoteOps()
+      expect.unreachable('expected the host to be refused')
+    } catch (error) {
+      const rendered = (error as AgentToolsError).toToolMessage()
+      expect(rendered).toMatch(/bubblewrap/i)
+      expect(rendered).toMatch(/namespace/i)
+    }
   })
 
   it('offers no unsandboxed fallback', async () => {

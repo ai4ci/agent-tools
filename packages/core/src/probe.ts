@@ -85,35 +85,17 @@ export function buildProbeScript(rootExpression: string): string {
   ].join('\n')
 }
 
-/** Parse the probe's tab-separated output. */
-export function parseProbeOutput(stdout: string): ProbeResult {
-  let root: string | undefined
-  let sandboxAvailable = false
-  const entries: UsrLayoutEntry[] = []
-  const tools = new Set<string>()
+function parseLayoutEntry(
+  path: string,
+  kind: string | undefined,
+  target: string | undefined,
+): UsrLayoutEntry | undefined {
+  if (kind === 'symlink' && target !== undefined) return { path, kind: 'symlink', target }
+  if (kind === 'directory') return { path, kind: 'directory' }
+  return undefined
+}
 
-  for (const line of stdout.split('\n')) {
-    const fields = line.split('\t')
-    const kind = fields[0]
-
-    if (kind === 'ROOT' && fields[1] !== undefined) {
-      root = fields[1]
-    } else if (kind === 'SANDBOX') {
-      sandboxAvailable = fields[1] === 'ok'
-    } else if (kind === 'TOOL' && fields[1] !== undefined) {
-      tools.add(fields[1])
-    } else if (kind === 'LAYOUT' && fields[1] !== undefined) {
-      const path = fields[1]
-      if (fields[2] === 'symlink' && fields[3] !== undefined) {
-        entries.push({ path, kind: 'symlink', target: fields[3] })
-      } else if (fields[2] === 'directory') {
-        entries.push({ path, kind: 'directory' })
-      }
-    }
-    // Anything else is shell noise — a login banner, a warning — and is ignored
-    // rather than treated as a failure.
-  }
-
+function validateProbedRoot(root: string | undefined): string {
   if (root === undefined) {
     throw new AgentToolsError('PROBE_FAILED', 'Probe did not report a root directory.', {
       remedy: 'Check that the configured root exists on the host.',
@@ -125,8 +107,37 @@ export function parseProbeOutput(stdout: string): ProbeResult {
       `Probe reported a non-absolute root ${JSON.stringify(root)}.`,
     )
   }
+  return root
+}
 
-  return { root, layout: { entries }, tools, sandboxAvailable }
+/** Parse the probe's tab-separated output. */
+export function parseProbeOutput(stdout: string): ProbeResult {
+  let root: string | undefined
+  let sandboxAvailable = false
+  const entries: UsrLayoutEntry[] = []
+  const tools = new Set<string>()
+
+  for (const line of stdout.split('\n')) {
+    // Anything unrecognised is shell noise — a login banner, a warning — and is
+    // ignored rather than treated as a failure.
+    const [kind, first, second, third] = line.split('\t')
+    if (first === undefined) continue
+
+    if (kind === 'ROOT') root = first
+    else if (kind === 'SANDBOX') sandboxAvailable = first === 'ok'
+    else if (kind === 'TOOL') tools.add(first)
+    else if (kind === 'LAYOUT') {
+      const entry = parseLayoutEntry(first, second, third)
+      if (entry !== undefined) entries.push(entry)
+    }
+  }
+
+  return {
+    root: validateProbedRoot(root),
+    layout: { entries },
+    tools,
+    sandboxAvailable,
+  }
 }
 
 /**

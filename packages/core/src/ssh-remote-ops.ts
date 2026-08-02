@@ -31,6 +31,50 @@ import { classifySshFailure } from './ssh-failure.js'
 /** Retained so a caller can dispose of a session's connections. */
 const openSessions = new Set<SshRemoteOps>()
 
+type LocalExecFailure = NodeJS.ErrnoException & {
+  killed?: boolean
+  signal?: NodeJS.Signals
+}
+
+/**
+ * Failures of the *local* `ssh` process, as distinct from failures reported by
+ * ssh about the connection (which `classifySshFailure` handles) and from the
+ * remote command's own exit code (which is a result, not a failure).
+ */
+function mapLocalExecFailure(
+  alias: string,
+  error: unknown,
+  timeoutMs: number,
+): AgentToolsError | undefined {
+  const failure = error as LocalExecFailure | null
+  if (failure === null) return undefined
+
+  if (failure.killed === true) {
+    return new AgentToolsError('TIMEOUT', `Command on "${alias}" timed out after ${timeoutMs}ms.`, {
+      remedy: 'Narrow the query or raise the timeout for this host.',
+      cause: error,
+    })
+  }
+
+  // A string `code` is an errno from spawning ssh itself — ENOENT means ssh is
+  // not installed. A numeric one is the process exit status.
+  if (typeof failure.code === 'string') {
+    return new AgentToolsError(
+      'HOST_UNREACHABLE',
+      `Could not run ssh for host "${alias}": ${failure.code}`,
+      { remedy: 'Check that ssh is installed and on PATH.', cause: error },
+    )
+  }
+
+  return undefined
+}
+
+function exitCodeOf(error: unknown): number {
+  if (error === null || error === undefined) return 0
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'number' ? code : 1
+}
+
 export interface SshRemoteOpsOptions {
   readonly host: HostConfig
   /** Disable connection multiplexing. Multiplexing is on by default (ADR-008). */
@@ -135,41 +179,14 @@ export class SshRemoteOps implements RemoteOps {
           ...(options.signal === undefined ? {} : { signal: options.signal }),
         },
         (error, stdout, stderr) => {
-          const failure = error as
-            | (NodeJS.ErrnoException & { killed?: boolean; signal?: NodeJS.Signals })
-            | null
+          const exitCode = exitCodeOf(error)
 
-          if (failure?.killed === true) {
-            reject(
-              new AgentToolsError(
-                'TIMEOUT',
-                `Command on "${this.alias}" timed out after ${timeoutMs}ms.`,
-                {
-                  remedy: 'Narrow the query or raise the timeout for this host.',
-                  cause: error,
-                },
-              ),
-            )
-            return
-          }
+          const failure =
+            mapLocalExecFailure(this.alias, error, timeoutMs) ??
+            classifySshFailure({ alias: this.alias, exitCode, stderr })
 
-          if (failure !== null && typeof failure.code === 'string') {
-            reject(
-              new AgentToolsError(
-                'HOST_UNREACHABLE',
-                `Could not run ssh for host "${this.alias}": ${failure.code}`,
-                { remedy: 'Check that ssh is installed and on PATH.', cause: error },
-              ),
-            )
-            return
-          }
-
-          const exitCode =
-            failure === null ? 0 : typeof failure.code === 'number' ? failure.code : 1
-
-          const sshFailure = classifySshFailure({ alias: this.alias, exitCode, stderr })
-          if (sshFailure !== undefined) {
-            reject(sshFailure)
+          if (failure !== undefined) {
+            reject(failure)
             return
           }
 
