@@ -29,3 +29,8 @@ export {
   truncateToBytes,
 } from './remote-ops.js'
 export { shellJoin, shellQuote } from './shell.js'
+export {
+  type BuildSshCommandOptions,
+  buildSshCommand,
+  controlPathFor,
+} from './ssh-command.js'
