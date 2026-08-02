@@ -85,8 +85,16 @@ with no code path that concatenates a caller-supplied string into a command line
 - [ ] Sandbox construction: read-only root bind, read-only toolchain binds,
       `--unshare-net`, `--unshare-pid`, `--die-with-parent`, tmpfs `/tmp`,
       no writable bind
-- [ ] Empirically determine the minimum bind set per tool — verified, not assumed
-      (ADR-006)
+- [x] Empirically determine the bind set — done via
+      `design/prototype/probe-bwrap.sh`; results recorded as ADR-012
+- [ ] Discover the host's usr layout in the probe and emit `--symlink` or
+      `--ro-bind` accordingly (ADR-012 finding 2)
+- [ ] Establish the tmpfs before binding the root — order is significant and a
+      root under `/tmp` is otherwise mounted over (ADR-012 finding 1)
+- [ ] **Remote canonicalisation of every path via `realpath`, rejecting results
+      outside the root.** Not optional: a symlink inside the root pointing at a
+      bound path such as `/etc` resolves, and neither bwrap nor lexical
+      containment prevents it (ADR-012 finding 3)
 - [ ] **Fail closed:** no bwrap, or a non-functional bwrap, refuses the host with
       an error stating what is missing and how to fix it
 - [ ] `LocalSandboxRemoteOps` (test tier 3) — real `bwrap`, no SSH — so sandbox

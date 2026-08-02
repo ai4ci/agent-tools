@@ -48,6 +48,27 @@ up the keypair for CI.
 
 ---
 
+## ENV-005 — The fail-closed sandbox path cannot be reproduced locally
+
+**Discovered:** Phase 2 · **Status:** Open, needs CI coverage
+
+ADR-006 is fail-closed: a host whose `bwrap` cannot create a namespace must be
+refused. The case that makes this non-trivial is *binary present, user namespaces
+denied* — common on hardened and managed hosts.
+
+This development sandbox has a working `bwrap`, so only the positive path is
+exercised. A naive `command -v bwrap` check would pass every local test while
+being wrong in production.
+
+Detection therefore attempts a real namespace rather than checking for the
+binary. That logic is unverified against a host where the attempt fails.
+
+Suggested fix: a CI job that denies unprivileged user namespaces
+(`sysctl kernel.unprivileged_userns_clone=0`, or a container without the
+capability) and asserts the host is refused. Not yet scheduled.
+
+---
+
 ## ENV-004 — `TestRemoteOps` inherits the developer's toolchain variants
 
 **Discovered:** Phase 0 (raised during design) · **Status:** Open, low priority

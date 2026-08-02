@@ -256,6 +256,69 @@ locally.
 
 ---
 
+## ADR-012 — Sandbox shape, determined empirically
+
+**Status:** Accepted
+
+**Context.** ADR-006 fixed the policy (bwrap on the remote, fail-closed) but left
+the bind set to be "verified, not assumed". `design/prototype/probe-bwrap.sh`
+tests the properties we are relying on against a real `bwrap`. Results below.
+
+**Confirmed.** With the sandbox shape in the prototype: the root is genuinely
+read-only (writes and file creation both refused); `--unshare-net` blocks
+outbound TCP; `/tmp` is a private tmpfs whose writes do not reach the host;
+`/home` and sibling directories outside the root are invisible; and
+`grep`, `find`, `ls`, `cat`, `stat`, `rg` all run and return correct results.
+
+**Finding 1 — argument order is significant.** bwrap applies operations in
+argument order. `--tmpfs /tmp` placed *after* the root bind mounts straight over
+a root that lives under `/tmp`, and the root disappears. The tmpfs must be
+established first. Production cannot assume the root is outside `/tmp`, because
+on a real host it may be anywhere.
+
+**Finding 2 — the bind set must be discovered per host.** This host is split-usr,
+with `/bin`, `/lib`, `/lib64`, `/sbin` as real directories. A merged-usr host has
+them as symlinks into `/usr` and needs `--symlink`, not `--ro-bind`. A hardcoded
+bind set is wrong on one layout or the other, so the probe must inspect the
+layout.
+
+**Finding 3 — a symlink into a bound path defeats the sandbox.** This is the
+significant one. `/etc` and `/usr` must be bound read-only or the toolchain
+cannot run: `ld.so` needs `/etc/ld.so.cache`, name resolution needs
+`/etc/nsswitch.conf`. A symlink placed inside the root pointing at `/etc/hostname`
+therefore resolves perfectly well, and the prototype read its contents from
+inside the sandbox.
+
+bwrap has no reason to prevent this and does not. Lexical containment in `core`
+cannot see it either, because the path handed to the tool is entirely legitimate.
+
+**Decision.** Path containment requires **three** layers, not two:
+
+1. lexical containment in `core` (Phase 1, done) — rejects `../` before a command
+   is built;
+2. the bwrap mount namespace — removes everything outside the root and the
+   toolchain from the filesystem view;
+3. **remote canonicalisation** — every path a tool touches is resolved on the
+   remote with `realpath` and rejected if the result falls outside the root.
+
+Layer 3 is not optional and is what closes Finding 3. It costs a round trip, so
+it belongs with the probe's cached state rather than being issued per path where
+that can be avoided.
+
+**Finding 4 — bwrap provides no confidentiality within reach.** `/etc` is
+readable from inside the sandbox by design. This is consistent with ADR-006:
+containment is the sandbox's job, confidentiality is the allowlist's and
+`.aiignore`'s (ADR-010). It is recorded here so it is not later mistaken for a
+regression.
+
+**Finding 5 — the fail-closed path is unverified.** On this host, `bwrap` is
+present *and* namespaces work, so a naive `command -v bwrap` check would have
+agreed with the real one. The case that matters — binary present, userns denied —
+could not be reproduced locally and is unverified (ENV-005). Detection attempts a
+real namespace regardless, since that is the only check that distinguishes them.
+
+---
+
 ## ADR-010 — `.aiignore` deferred to a later phase
 
 **Status:** Deferred (user decision)
