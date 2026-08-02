@@ -73,6 +73,10 @@ export function resolveWithinRoot(root: string, input: string): string {
  * starts with '/home/u/project' but is not inside it. The separator check is what
  * makes the comparison correct.
  */
+export function isPathWithin(root: string, candidate: string): boolean {
+  return isWithin(normaliseRoot(root), candidate)
+}
+
 function isWithin(root: string, candidate: string): boolean {
   if (candidate === root) return true
   if (root === '/') return candidate.startsWith('/')

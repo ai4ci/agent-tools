@@ -18,7 +18,14 @@ export {
   invalidArgument,
   isAgentToolsError,
 } from './errors.js'
-export { resolveWithinRoot } from './paths.js'
+export { isPathWithin, resolveWithinRoot } from './paths.js'
+export {
+  buildProbeScript,
+  type ProbeResult,
+  parseProbeOutput,
+  probeHost,
+  type RawExec,
+} from './probe.js'
 export {
   DEFAULT_MAX_OUTPUT_BYTES,
   DEFAULT_TIMEOUT_MS,
@@ -28,6 +35,13 @@ export {
   type RemoteOps,
   truncateToBytes,
 } from './remote-ops.js'
+export { canonicaliseWithinRoot, type SandboxedExec } from './remote-paths.js'
+export {
+  type BuildSandboxCommandOptions,
+  buildSandboxCommand,
+  type UsrLayout,
+  type UsrLayoutEntry,
+} from './sandbox.js'
 export { shellJoin, shellQuote } from './shell.js'
 export {
   type BuildSshCommandOptions,
