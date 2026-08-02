@@ -8,4 +8,13 @@ export {
   isAgentToolsError,
 } from './errors.js'
 export { resolveWithinRoot } from './paths.js'
+export {
+  DEFAULT_MAX_OUTPUT_BYTES,
+  DEFAULT_TIMEOUT_MS,
+  type ExecOptions,
+  type ExecResult,
+  type RemoteCapabilities,
+  type RemoteOps,
+  truncateToBytes,
+} from './remote-ops.js'
 export { shellJoin, shellQuote } from './shell.js'
