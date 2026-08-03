@@ -153,10 +153,18 @@ marker present when limits are hit; paths outside the root rejected by every
 tool, not just by `core`.
 
 **Done when:** all six tools work end-to-end against a real sandboxed host.
-**Status:** all six tools implemented and passing at tier 1 (54 tests). Only the
-path-filter seam remains. Not yet exercised at tier 3 or 4 — the tools are driven
-through `TestRemoteOps`, so they have never run inside a real bwrap sandbox or
-over SSH; worth adding before Phase 4.
+**Status:** all six tools implemented, passing at tier 1 (54 tests) and at tier 3
+inside a real bwrap sandbox (20 tests). Only the path-filter seam remains.
+
+The tier 3 pass closed a real gap: tier 1 exercises the tools' invocations against
+real binaries but *unsandboxed*, so nothing proved that `stat -c`, `sed -n`,
+`rg --max-count` or `find -mindepth` work inside the restricted mount namespace,
+where only the root and the discovered toolchain paths exist. It also confirms
+containment end to end — each tool refuses a symlink to `/etc` from inside the
+sandbox, which is the case bwrap cannot prevent (ADR-012 finding 3).
+
+Not yet exercised at tier 4: the tools have never run over SSH. Lower risk than
+the sandbox gap was, since tier 4 already covers the transport for `core`.
 
 ---
 
