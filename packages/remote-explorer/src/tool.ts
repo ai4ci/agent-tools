@@ -61,6 +61,14 @@ export interface ToolDefinition<Parameters extends TObject = TObject> {
   readonly name: string
   /** Short human label for UIs that show one. */
   readonly label: string
+  /**
+   * One-line summary, no newlines.
+   *
+   * pi puts this in the system prompt's "Available tools" list and omits tools
+   * that do not supply one, so without it the tool is registered but never
+   * advertised.
+   */
+  readonly summary: string
   readonly description: string
   readonly parameters: Parameters
   handler(params: Static<Parameters>, context: ToolContext): Promise<ToolResult>

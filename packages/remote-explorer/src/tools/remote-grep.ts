@@ -65,6 +65,7 @@ export function buildSearchArgv(options: {
 export const remoteGrep: ToolDefinition<typeof parameters> = {
   name: 'remote_grep',
   label: 'Remote content search',
+  summary: 'Search file contents on a remote host and return matching lines',
   description:
     'Search file contents on a configured remote host and return matching lines with their ' +
     "file and line number. Paths are relative to the host's root. Uses ripgrep where " +

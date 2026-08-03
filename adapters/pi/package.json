@@ -15,5 +15,16 @@
   "dependencies": {
     "@agent-tools/core": "0.1.0",
     "@agent-tools/remote-explorer": "0.1.0"
+  },
+  "keywords": [
+    "pi-package",
+    "agent-tools",
+    "ssh",
+    "remote"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
   }
 }

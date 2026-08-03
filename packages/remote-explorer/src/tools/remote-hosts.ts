@@ -11,6 +11,7 @@ import { type ToolDefinition, type ToolResult, toolError } from '../tool.js'
 export const remoteHosts: ToolDefinition = {
   name: 'remote_hosts',
   label: 'Remote hosts',
+  summary: 'List the remote hosts available for exploration and their root directories',
   description:
     'List the remote hosts that are configured for exploration, with the root directory ' +
     'each one is limited to. Call this first if you do not already know a host alias: ' +

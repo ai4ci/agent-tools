@@ -57,6 +57,49 @@ A durable fix would be a valid `GH_TOKEN` exported in the sandbox configuration.
 
 ---
 
+## EXP-002 — Deliberate divergence: leading `@` in paths is not stripped
+
+**Discovered:** Phase 4 · **Status:** Open by decision, needs confirming
+
+pi's extension documentation advises that custom tools accepting a path should
+strip a leading `@`, because some models copy pi's `@file` reference syntax into
+tool arguments, and pi's own built-in tools strip it.
+
+The remote tools deliberately do not. The trees these tools explore routinely
+contain directories whose names genuinely begin with `@` — every scoped npm
+package under `node_modules` does — so stripping would make
+`node_modules/@types/node/index.d.ts` unreadable, which is exactly the kind of
+path someone explores a remote machine to find.
+
+The cost of not stripping is that a model which prefixes a path with `@` gets a
+"path does not exist" error rather than the file. That is a recoverable, legible
+failure; silently reading the wrong path is not.
+
+Raise with the user: if this proves annoying in practice, the better fix is to
+retry once without the prefix *only* when the prefixed path does not exist, rather
+than stripping unconditionally.
+
+---
+
+## EXP-003 — pi end-to-end tool invocation is unverified
+
+**Discovered:** Phase 4 · **Status:** Open, blocked on provider credit
+
+The extension loads correctly in pi: `pi -e ./adapters/pi/dist/index.js --print`
+reaches the provider and fails with `402 Insufficient Balance`, which means jiti
+loaded the module and `registerTool` accepted all six tools without error.
+
+What is *not* verified is that a model can see and call them — that the tools
+appear in the system prompt's "Available tools" section, that parameter schemas
+are accepted by a real provider, and that results render sensibly. That needs a
+funded provider account.
+
+Unit tests cover the parts under our control: the default export registers six
+tools, subscribes to `session_end`, supplies `promptSnippet` for each, and every
+schema avoids the `anyOf`/`const` constructs Google rejects.
+
+---
+
 ## EXP-001 — `remote_ls` misreports filenames containing a newline
 
 **Discovered:** Phase 3 · **Status:** Open, low priority

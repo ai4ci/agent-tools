@@ -170,15 +170,30 @@ the sandbox gap was, since tier 4 already covers the transport for `core`.
 
 ## Phase 4 — pi adapter
 
-- [ ] Extension entry point mapping definitions to `pi.registerTool()`
-- [ ] Config loading and probe caching scoped to the pi session
-- [ ] Teardown on session end — control sockets closed
-- [ ] Errors surfaced as useful tool results rather than thrown exceptions
-- [ ] Packaged as an installable pi package; `pi install` from a local path,
-      then from git
-- [ ] Manual verification: tools appear in `pi` and are callable by the model
+- [x] Extension entry point mapping definitions to `pi.registerTool()`
+- [x] Config loading and probe caching scoped to the pi session
+- [x] Teardown on `session_end` — control sockets closed
+- [x] Errors surfaced usefully. Note the inversion: pi flags a tool result as an
+      error only when `execute` *throws*, so the adapter converts our
+      `ToolResult.isError` into a thrown error. Returning it would report every
+      failure to the model as a success
+- [x] `promptSnippet` supplied per tool from a new `summary` field — pi omits
+      tools without one from the system prompt's "Available tools" section, so
+      they would be registered but never advertised
+- [x] String enums expressed as `{ type: 'string', enum: [...] }`, not
+      `Type.Union`/`Type.Literal`, which emit `anyOf`/`const` and are rejected by
+      Google's API. Asserted for every tool schema by an invariant test
+- [x] `pi` manifest and `pi-package` keyword in `package.json`
+- [ ] `pi install` from a local path, then from git — not yet attempted
+- [~] Manual verification: the extension **loads** in pi (`pi -e … --print`
+      reaches the provider and fails only on account balance, so `registerTool`
+      accepted all six tools). Whether a model can see and call them is
+      **unverified** — see EXP-003
 
 **Done when:** `pi install <this repo>` yields working `remote_*` tools.
+**Status:** the adapter is complete and unit-tested (20 tests), and the extension
+loads cleanly in pi. Verification that a model can actually call the tools is
+blocked on provider credit (EXP-003).
 
 ---
 

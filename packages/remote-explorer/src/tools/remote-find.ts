@@ -1,5 +1,6 @@
 import { AgentToolsError } from '@agent-tools/core'
 import { Type } from 'typebox'
+import { stringEnum } from '../schema.js'
 import { type ToolDefinition, type ToolResult, toolError } from '../tool.js'
 import {
   outputLines,
@@ -33,7 +34,7 @@ const parameters = Type.Object({
     }),
   ),
   type: Type.Optional(
-    Type.Union([Type.Literal('file'), Type.Literal('directory'), Type.Literal('symlink')], {
+    stringEnum(['file', 'directory', 'symlink'], {
       description: 'Restrict results to one entry type.',
     }),
   ),
@@ -56,6 +57,7 @@ const parameters = Type.Object({
 export const remoteFind: ToolDefinition<typeof parameters> = {
   name: 'remote_find',
   label: 'Remote find files',
+  summary: 'Find files and directories by name, type or depth on a remote host',
   description:
     'Find files and directories by name, type or depth on a configured remote host. ' +
     "Results are paths relative to the host's root. Use this to locate files; use " +

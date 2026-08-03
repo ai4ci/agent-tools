@@ -27,6 +27,7 @@ const parameters = Type.Object({
 export const remoteRead: ToolDefinition<typeof parameters> = {
   name: 'remote_read',
   label: 'Remote read file',
+  summary: 'Read lines from a file on a remote host',
   description:
     'Read lines from a file on a configured remote host. Reading is read-only and confined ' +
     "to the host's root. Use offset and limit to page through a large file rather than " +

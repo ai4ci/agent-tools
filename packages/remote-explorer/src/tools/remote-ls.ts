@@ -73,6 +73,7 @@ const remoteLsParameters = Type.Object({
 export const remoteLs: ToolDefinition<typeof remoteLsParameters> = {
   name: 'remote_ls',
   label: 'Remote list directory',
+  summary: 'List the contents of a directory on a remote host',
   description:
     'List the contents of a directory on a configured remote host. Paths are relative to ' +
     "the host's root directory, and paths outside it are refused. Hidden entries are " +

@@ -55,6 +55,7 @@ const parameters = Type.Object({
 export const remoteStat: ToolDefinition<typeof parameters> = {
   name: 'remote_stat',
   label: 'Remote file metadata',
+  summary: 'Report type, size, timestamps and permissions for a path on a remote host',
   description:
     'Report the type, size, modification time, permissions and ownership of a path on a ' +
     "configured remote host. Paths are relative to the host's root and paths outside it " +

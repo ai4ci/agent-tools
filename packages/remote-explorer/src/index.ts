@@ -1,5 +1,6 @@
 export const PACKAGE_NAME = '@agent-tools/remote-explorer'
 
+export { stringEnum } from './schema.js'
 export {
   type CreateToolContextOptions,
   createToolContext,
