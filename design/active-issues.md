@@ -48,6 +48,40 @@ up the keypair for CI.
 
 ---
 
+## SBX-001 — Sandbox runs as root, so `ssh` resolves the wrong home directory
+
+**Discovered:** Phase 3 · **Status:** Open, for the sandbox owner. Do not work
+around.
+
+The development sandbox runs as `uid=0(root)` while `$HOME` is `/home/scoder`.
+Most tools honour `$HOME`, but OpenSSH takes the home directory from the passwd
+entry for the running uid, so it reads `/root/.ssh` instead:
+
+```
+$ ssh -v -T git@github.com
+debug1: identity file /root/.ssh/id_rsa type -1
+...
+Host key verification failed.
+```
+
+Consequences observed:
+
+- `git push` over SSH fails with `Host key verification failed`, and writing
+  `~/.ssh/known_hosts` does not help because ssh never reads that path. A
+  `known_hosts` file was left at `/home/scoder/.ssh/known_hosts` containing
+  GitHub's published host keys (verified against `api.github.com/meta`); it is
+  inert and can be deleted.
+- No identity files exist under `/root/.ssh`, so SSH authentication is not
+  available in the sandbox at all.
+- Pushing, and any real SSH work, must therefore happen outside the sandbox.
+
+The user has confirmed the root uid is a sandbox bug and not to be worked around.
+Test tiers 1-3 are unaffected: they use `TestRemoteOps` and
+`LocalSandboxRemoteOps`, neither of which involves SSH. Tier 4 stays CI-only
+(ENV-003).
+
+---
+
 ## EXP-001 — `remote_ls` misreports filenames containing a newline
 
 **Discovered:** Phase 3 · **Status:** Open, low priority
