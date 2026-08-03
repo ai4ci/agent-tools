@@ -29,13 +29,15 @@ Working rules for every phase (from `AGENTS.md`):
       `adapters/pi`, `adapters/mcp` build, typecheck, and cross-resolve
 - [x] `packages/test-support` marked private; `scripts/check-boundaries.mjs`
       enforces that no shipped package depends on or imports it (ADR-011)
-- [ ] CI: install, typecheck, lint, test on push — **blocked, see ENV-002.**
-      Workflow written to `design/ci.yml`; `.github/` is not agent-writable and
-      the file must be moved by hand
+- [x] CI: install, typecheck, lint, test on push. Split into four jobs by
+      prerequisite — `verify` (tiers 1-2), `sandbox` (tiers 3-4), `fail-closed`
+      (ENV-005), `diagnose` (records runner capability). `.github/` is not
+      agent-writable, so the workflow is authored in `design/ci.yml` and moved by
+      hand
 - [x] `design/active-issues.md` created
 
 **Done when:** `npm install && npm run verify` is green on a clean clone.
-**Status:** green locally; CI installation outstanding (ENV-002).
+**Status:** met. Green locally and in CI.
 
 ---
 
@@ -96,50 +98,65 @@ with no code path that concatenates a caller-supplied string into a command line
       explicit symlink walk for hosts without it
 - [x] **Fail closed:** a host whose sandbox cannot be created is refused with an
       error stating what is missing and how to fix it. Detection attempts a real
-      namespace rather than checking PATH — **the negative case is unverified
-      locally (ENV-005)**
+      namespace rather than checking PATH. **Verified in CI:** a default
+      `ubuntu-latest` runner has bwrap installed and unprivileged user namespaces
+      denied, which is exactly the hardened host that could not be reproduced
+      locally, and the `fail-closed` job asserts it is refused with
+      `SANDBOX_UNAVAILABLE` and no fallback
 - [x] `LocalSandboxRemoteOps` (test tier 3) — real `bwrap`, no SSH — so sandbox
       correctness is testable without a remote host (ADR-011)
 - [x] Root containment verified at the sandbox level too, independently of the
       `core`-level check added in Phase 1
 - [x] `SshRemoteOps` — probe caching, sandbox wrapping, escaping, multiplexing,
       control-socket teardown, and SSH failure classification
-- [x] Tier 4 test suite written (`*.ssh.test.ts`) — **never executed; no sshd in
-      the development sandbox (ENV-003). CI is the first run.**
+- [x] Tier 4 test suite (`*.ssh.test.ts`) — **passing in CI.** The development
+      sandbox has no sshd and cannot use SSH at all (SBX-001), so tier 4 is
+      CI-only by design rather than by accident
 
 **Tests to fail first:** host with a non-functional sandbox is refused; symlink
 pointing outside the root is rejected; a write attempt inside the sandbox fails;
-network from inside the sandbox fails. *(All written and proven to fail first,
-except the bwrap-present-but-userns-blocked case, which cannot be reproduced
-locally — ENV-005.)*
+network from inside the sandbox fails. *(All written and proven to fail first.)*
 
 **Done when:** no remote command can execute outside a verified sandbox, and the
 containment tests pass against a real bwrap.
-**Status:** met at tier 3 locally (23 tests). Tier 4 awaits its first CI run.
+**Status:** met. Tier 3 passes locally (23 tests) and tiers 3-4 pass in CI, so
+escaping through a real remote login shell, bwrap over SSH, multiplexing and
+symlink containment are all verified end to end.
 
 ---
 
 ## Phase 3 — Remote explorer tools (`packages/remote-explorer`)
 
-- [ ] Shared tool-definition type: name, description, TypeBox schema, handler
-- [ ] `remote_hosts` — list configured aliases and their roots
-- [ ] `remote_ls` — directory listing, structured result
-- [ ] `remote_stat` — metadata for a path
-- [ ] `remote_find` — name/type/depth filtered search
-- [ ] `remote_grep` — content search, preferring `rg`, falling back to `grep`
-- [ ] `remote_read` — file contents with offset/limit
+- [x] Shared tool-definition type: name, description, TypeBox schema, handler.
+      `handler` takes the schema's inferred `Static` type, so a tool cannot
+      declare one set of parameters and read another
+- [x] Tool context resolving an alias to a session, with the `RemoteOps` factory
+      injected so tier 1 drives the real handlers (ADR-011)
+- [x] `remote_hosts` — list configured aliases and their roots
+- [x] `remote_ls` — directory listing, structured result
+- [x] `remote_stat` — metadata for a path
+- [x] `remote_find` — name/type/depth filtered search
+- [x] `remote_grep` — content search, preferring `rg`, falling back to `grep`
+- [x] `remote_read` — file contents with offset/limit
 - [ ] Path-filter seam applied to every path before it reaches output — the hook
-      `.aiignore` fills in later (ADR-010)
-- [ ] Output limits pushed to the remote where possible; truncation always
-      explicit in the result (ADR-009)
-- [ ] Tool descriptions written for a model reader, valid under both bare and
+      `.aiignore` fills in later (ADR-010). The tools already share one
+      `resolveTarget`/`relativiseToRoot` pair, so this is a single insertion point
+- [x] Output limits pushed to the remote where possible (`rg --max-count`,
+      `grep -m`, `sed` ranges); truncation always explicit in the result (ADR-009)
+- [x] Tool descriptions written for a model reader, valid under both bare and
       MCP-namespaced tool names
+- [x] Every tool resolves its own paths through one shared helper, so containment
+      is enforced per tool rather than only in core
 
 **Tests to fail first:** per-tool behaviour against a fixture tree; truncation
 marker present when limits are hit; paths outside the root rejected by every
 tool, not just by `core`.
 
 **Done when:** all six tools work end-to-end against a real sandboxed host.
+**Status:** all six tools implemented and passing at tier 1 (54 tests). Only the
+path-filter seam remains. Not yet exercised at tier 3 or 4 — the tools are driven
+through `TestRemoteOps`, so they have never run inside a real bwrap sandbox or
+over SSH; worth adding before Phase 4.
 
 ---
 
