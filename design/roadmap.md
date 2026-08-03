@@ -199,15 +199,30 @@ blocked on provider credit (EXP-003).
 
 ## Phase 5 — MCP adapter and Claude Code plugin
 
-- [ ] stdio MCP server exposing the same definitions
-- [ ] TypeBox → JSON Schema derivation, with schema-parity tests against the pi
-      adapter (ADR-002)
-- [ ] Claude Code plugin manifest bundling the server
-- [ ] Manual verification: tools appear in Claude Code and are callable
-- [ ] Install documentation for both hosts
+- [x] stdio MCP server exposing the same definitions
+- [x] TypeBox → JSON Schema derivation, with schema-parity tests against the
+      definitions the pi adapter reads (ADR-002). TypeBox schemas already *are*
+      JSON Schema and its `~kind` marker is non-enumerable, so the conversion is a
+      JSON round trip — done explicitly rather than relying on that
+- [x] Error mapping, which is the exact inverse of pi's: MCP carries `isError` on
+      the result, and throwing would become a *protocol* error the model cannot
+      read. pi flags an error only when the handler throws. The same `ToolResult`
+      therefore maps two opposite ways
+- [x] Verified against the real built server over stdio via
+      `design/prototype/probe-mcp-server.mjs` — initialise handshake, `tools/list`,
+      `tools/call`, unknown alias, unknown tool, and that stdout carries nothing
+      but JSON-RPC. 11 checks, all passing
+- [x] Install documentation for both hosts (`docs/install.md`)
+- [ ] Claude Code plugin manifest bundling the server — **not done.** The server is
+      registered manually via `.mcp.json`, which is documented and sufficient;
+      packaging it as a distributable plugin is outstanding
+- [ ] Manual verification inside Claude Code itself — the protocol is verified
+      end to end, but the server has not been loaded by Claude Code
 
 **Done when:** the identical tool set is usable from Claude Code, with parity
 tests proving the two adapters expose the same schemas.
+**Status:** parity tests in place, and the protocol works against the real server.
+Plugin packaging and in-host verification outstanding.
 
 ---
 

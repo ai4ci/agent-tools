@@ -6,36 +6,29 @@ rather than fixed in passing. Remove an entry once it is resolved.
 
 ---
 
-## SBX-001 — Sandbox runs as root, so `ssh` resolves the wrong home directory
+## SBX-001 — No SSH credentials in the sandbox, so git push happens outside it
 
-**Discovered:** Phase 3 · **Status:** Open, for the sandbox owner. Do not work
-around.
+**Discovered:** Phase 3 · **Status:** Resolved in part; remainder is expected
+behaviour, not a defect.
 
-The development sandbox runs as `uid=0(root)` while `$HOME` is `/home/scoder`.
-Most tools honour `$HOME`, but OpenSSH takes the home directory from the passwd
-entry for the running uid, so it reads `/root/.ssh` instead:
+*Originally:* the sandbox ran as `uid=0(root)` while `$HOME` was `/home/scoder`.
+OpenSSH takes the home directory from the passwd entry for the running uid rather
+than from `$HOME`, so it read `/root/.ssh` and `git push` failed with
+`Host key verification failed` no matter what was written to `~/.ssh`.
 
-```
-$ ssh -v -T git@github.com
-debug1: identity file /root/.ssh/id_rsa type -1
-...
-Host key verification failed.
-```
+*Fixed by the sandbox owner.* The sandbox now runs as `uid=1001(scoder)` and ssh
+resolves `/home/scoder/.ssh` correctly.
 
-Consequences observed:
+What remains is not a bug: `~/.ssh` is not bound into the sandbox, so there are no
+identity files and no `known_hosts`. SSH authentication is therefore unavailable
+here by design, and pushing is done outside the sandbox.
 
-- `git push` and `git fetch` over SSH fail with `Host key verification failed`,
-  and writing `~/.ssh/known_hosts` does not help because ssh never reads that
-  path. A `known_hosts` file was left at `/home/scoder/.ssh/known_hosts`
-  containing GitHub's published host keys (verified against
-  `api.github.com/meta`); it is inert and can be deleted.
-- No identity files exist under `/root/.ssh`, so SSH authentication is not
-  available in the sandbox at all.
-- Pushing must therefore happen outside the sandbox.
+An inert `known_hosts` written during diagnosis may still exist at
+`/home/scoder/.ssh/known_hosts` — it holds GitHub's published host keys, verified
+against `api.github.com/meta`, and can be deleted.
 
-The user has confirmed the root uid is a sandbox bug and not to be worked around.
-Test tiers 1-3 are unaffected — they use `TestRemoteOps` and
-`LocalSandboxRemoteOps`, neither of which involves SSH — and tier 4 runs in CI.
+Test tiers 1-3 are unaffected: they use `TestRemoteOps` and
+`LocalSandboxRemoteOps`, neither of which involves SSH. Tier 4 runs in CI.
 
 ---
 

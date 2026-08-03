@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@agent-tools/core": "0.1.0",
-    "@agent-tools/remote-explorer": "0.1.0"
+    "@agent-tools/remote-explorer": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.30.0"
   }
 }

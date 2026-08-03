@@ -48,7 +48,7 @@
   },
   "overrides": [
     {
-      "includes": ["adapters/mcp/**/*.ts", "scripts/**/*.mjs"],
+      "includes": ["adapters/mcp/**/*.ts", "scripts/**/*.mjs", "design/prototype/**"],
       "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
     },
     {
