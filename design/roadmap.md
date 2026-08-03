@@ -226,19 +226,32 @@ Plugin packaging and in-host verification outstanding.
 
 ---
 
-## Phase 6 — `.aiignore` (deferred scope, now scheduled)
+## Phase 6 — `.aiignore`
 
-- [ ] Confirm the final semantics with the user before implementing — remote
-      gitignore-syntax file relative to the connection root is the presumed shape
-      but is not yet settled
-- [ ] Discovery and parsing of gitignore-syntax patterns
-- [ ] Enforcement in the Phase 3 path-filter seam — filtered paths omitted from
-      results and unreadable through `remote_read`
-- [ ] Local baseline patterns that a remote file can add to but never subtract
-      from
-- [ ] Remove the "no confidentiality filtering" caveat from the README
+Semantics settled with the user and recorded as ADR-013. Enforcement is in the
+**sandbox**, not the tool layer, so no tool can forget it.
 
-**Done when:** ignored paths are invisible through every tool, verified per tool.
+- [x] Confirm the final semantics with the user before implementing
+- [x] Establish the mechanism empirically —
+      `design/prototype/probe-aiignore-hiding.sh`. The proposed symlink-to-nowhere
+      approach does not work; `--tmpfs` over the parent plus `--ro-bind` of
+      permitted siblings does (ADR-013)
+- [ ] Read and parse `.aiignore` from the connection root, gitignore syntax
+- [ ] Compute the overlay plan once per session, alongside the probe: which
+      directories contain an ignored entry, and which siblings survive
+- [ ] Extend `buildSandboxCommand` to apply the plan
+- [ ] `.aiignore` is itself always ignored
+- [ ] Tier 3 tests: an ignored file is absent from `remote_ls` and `remote_find`,
+      `remote_read` reports not-found, and `remote_grep` cannot reach its contents
+- [ ] Remove the "no content filtering within a root" caveat from
+      `docs/install.md`
+
+**Deliberately not done:** the `--tmp-overlay` whiteout route, which would be
+O(ignored files) rather than O(directory entries). Recorded as a future option in
+ADR-013; `--tmp-overlay` is absent from the bubblewrap build available here.
+
+**Done when:** ignored paths are invisible through every tool, verified per tool
+at tier 3.
 
 ---
 

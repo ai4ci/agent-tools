@@ -319,6 +319,80 @@ real namespace regardless, since that is the only check that distinguishes them.
 
 ---
 
+## ADR-013 — `.aiignore` enforced by the sandbox, via a tmpfs overlay
+
+**Status:** Accepted
+
+**Context.** ADR-010 deferred `.aiignore` and left its semantics open. The user has
+now settled them:
+
+- one `.aiignore`, at the connection root
+- ignored paths are **completely invisible**, not merely unreadable — a direct
+  `remote_read` returns "not found", and listings behave as though the entry does
+  not exist
+- `.aiignore` itself is invisible on the same terms
+- enforcement belongs in the sandbox rather than in the tool layer
+
+The last point is the important one. Tool-layer filtering has to be repeated in
+every tool, and a tool added later that forgets it leaks silently. A sandbox that
+does not contain the path cannot be forgotten by anything.
+
+**Mechanisms tested.** `design/prototype/probe-aiignore-hiding.sh` records these.
+The originally proposed mechanism — symlink each ignored path to a non-existent
+target and let the sandbox produce ENOENT — does not work:
+
+| Mechanism | Result |
+|-----------|--------|
+| `--symlink /does/not/exist <file>` over `--ro-bind` | refused: *destination exists and is not a symlink* |
+| the same over a read-write `--bind` | refused identically — writability is not the obstacle |
+| `--tmpfs <file>` | refused: *Not a directory* |
+| `--ro-bind <empty dir> <file>` | refused: *Not a directory* |
+| nested bwrap (outer writable, inner read-only) | nesting works, but does not help — see below |
+| `--tmp-overlay` (whiteout route) | `Unknown option` on bubblewrap 0.9.0 as built here |
+| **`--tmpfs <parent>` + `--ro-bind` permitted siblings** | **works: the name is absent from `ls` and `find`** |
+
+Nested bwrap was suggested as a way to rescue the symlink approach: construct a
+view in a writable outer sandbox, then re-impose read-only in an inner one.
+Nesting does work, but no symlink-based view can be made safe. A symlink must
+point somewhere, so the real files have to be visible at some path in the same
+namespace — bind the source at `/src` and the model simply reads `/src/.env`.
+Symlinks cannot launder visibility; only bind mounts and tmpfs can.
+
+**Decision.** For each directory containing an ignored entry: mount a tmpfs over
+it, then `--ro-bind` back only the permitted entries. A directory that is itself
+ignored is simply omitted from its parent's re-bind, which costs nothing extra —
+so hiding a directory is cheap and hiding a single file is what costs.
+
+Only one mechanism is implemented. The overlay/whiteout route is recorded as a
+future option, not built (see below).
+
+The overlay plan is computed **once per session**, alongside the probe, and reused.
+
+**Consequences.**
+
+*Cost is O(entries in affected directories)*, measured at roughly 1ms per entry —
+2000 entries in a single directory took 2.06s. Directories with nothing ignored are
+bound wholesale and cost nothing. A root-level `.aiignore` naming `.env` therefore
+overlays one directory; a pattern matching across hundreds of directories overlays
+each of them. No artificial cap is imposed; the cost is documented instead.
+
+*A mid-session edit to `.aiignore` is not picked up* until the host is probed
+again, because the plan is cached with the probe.
+
+*Building the plan requires enumerating the affected directories*, and that
+enumeration necessarily sees the ignored names. They are filtered by our code and
+never reach a tool result, so the guarantee is precisely: invisible to anything the
+model can invoke. It is not a claim that the names never enter this process.
+
+*Future option, not implemented.* Where `bwrap --tmp-overlay` is available, an
+outer sandbox could delete the ignored paths in a tmpfs upper layer — a whiteout,
+leaving the host untouched — and an inner sandbox re-impose read-only. That is
+O(ignored files) rather than O(entries), and is the user's original idea working
+properly. It needs a per-host capability probe and a second code path, so it is
+deferred until the cost of the chosen mechanism is shown to matter.
+
+---
+
 ## ADR-010 — `.aiignore` deferred to a later phase
 
 **Status:** Deferred (user decision)
